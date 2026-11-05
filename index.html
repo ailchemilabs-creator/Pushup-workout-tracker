@@ -1,0 +1,717 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfect Form Tracker</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Confetti Library -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s ease;
+            -webkit-font-smoothing: antialiased;
+            overflow-y: auto; /* Ensures the page can be scrolled vertically */
+            overflow-x: hidden;
+        }
+        
+        #root {
+            min-height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Custom scrollbar for a polished look */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // Theme Generator Helper
+        const genT = (name, bg, card, primary, secondary, lightText = true) => ({
+            name,
+            body: `bg-[${bg}]`,
+            card: `bg-[${card}]`,
+            cardInner: `bg-[${bg}]`,
+            border: `border-[${primary}]`,
+            text: lightText ? 'text-white' : 'text-slate-900',
+            textMuted: lightText ? 'text-white/70' : 'text-slate-800/70',
+            primary: `from-[${primary}] to-[${secondary}]`,
+            primaryHover: `hover:from-[${secondary}] hover:to-[${primary}]`,
+            btnText: lightText ? `text-[${bg}]` : 'text-white',
+            iconPrimary: `text-[${primary}]`,
+            iconSecondary: `text-[${secondary}]`,
+            activeTab: `bg-[${primary}] text-[${bg}] shadow-[${primary}]/20 font-bold`,
+            progressStart: `from-[${secondary}]`,
+            progressEnd: `to-[${primary}]`,
+            heatBase: `bg-[${bg}] border-[${primary}]/30`,
+            heat1: `bg-[${primary}]/30 border-[${primary}]/50`,
+            heat2: `bg-[${primary}]/70 border-[${primary}]/80`,
+            heat3: `bg-[${primary}] border-white/50`,
+            heat4: `bg-[${secondary}] border-white font-bold`,
+            heatText: lightText ? 'text-white' : 'text-slate-900',
+            shadow: `shadow-[${primary}]/20`,
+            btnHover: `hover:bg-[${primary}]/20`,
+            dot: `bg-[${primary}]`,
+            confetti: [primary, secondary, lightText ? '#ffffff' : '#000000'],
+            docBg: bg
+        });
+
+        // NBA Themes Definition
+        const THEMES = {
+            'Default': {
+                name: 'Default',
+                body: 'bg-slate-900',
+                card: 'bg-slate-800',
+                cardInner: 'bg-slate-900',
+                border: 'border-slate-700',
+                text: 'text-white',
+                textMuted: 'text-slate-400',
+                primary: 'from-green-500 to-emerald-600',
+                primaryHover: 'hover:from-green-400 hover:to-emerald-500',
+                btnText: 'text-white',
+                iconPrimary: 'text-green-400',
+                iconSecondary: 'text-blue-400',
+                activeTab: 'bg-blue-600 text-white shadow-blue-500/20',
+                progressStart: 'from-blue-500',
+                progressEnd: 'to-emerald-400',
+                heatBase: 'bg-slate-900 border-slate-700',
+                heat1: 'bg-emerald-800 border-emerald-700',
+                heat2: 'bg-emerald-700 border-emerald-600',
+                heat3: 'bg-emerald-600 border-emerald-500',
+                heat4: 'bg-emerald-500 border-emerald-400',
+                heatText: 'text-emerald-50',
+                shadow: 'shadow-green-500/20',
+                btnHover: 'hover:bg-slate-700',
+                dot: 'bg-green-500',
+                confetti: ['#22c55e', '#3b82f6', '#eab308'],
+                docBg: '#0f172a'
+            },
+            '76ers': genT('76ers', '#006BB6', '#00538c', '#ED174C', '#ffffff'),
+            'Bucks': genT('Bucks', '#00471B', '#003614', '#EEE1C6', '#0077c0'),
+            'Bulls': genT('Bulls', '#121212', '#1e1e1e', '#CE1141', '#a80e35'),
+            'Cavaliers': genT('Cavaliers', '#860038', '#6b002c', '#FDBB30', '#ffffff'),
+            'Celtics': genT('Celtics', '#00471B', '#005a22', '#BA9653', '#ffffff'),
+            'Clippers': genT('Clippers', '#1D428A', '#16336b', '#C8102E', '#ffffff'),
+            'Grizzlies': genT('Grizzlies', '#5D76A9', '#4a5f87', '#12173F', '#F5B112'),
+            'Hawks': genT('Hawks', '#e03a3e', '#c42e32', '#c1d32f', '#ffffff'),
+            'Heat': genT('Heat', '#98002E', '#7a0025', '#F9A01B', '#000000'),
+            'Hornets': genT('Hornets', '#1d1160', '#261780', '#00788c', '#ffffff'),
+            'Jazz': genT('Jazz', '#002B5C', '#001e40', '#F9A01B', '#00471B'),
+            'Kings': genT('Kings', '#5a2d81', '#482466', '#63727A', '#ffffff'),
+            'Knicks': genT('Knicks', '#006BB6', '#00538c', '#F58426', '#ffffff'),
+            'Lakers': genT('Lakers', '#2A1546', '#3b1f5e', '#FDB927', '#552583'),
+            'Magic': genT('Magic', '#0077c0', '#005a91', '#C4CED4', '#000000'),
+            'Mavericks': genT('Mavericks', '#00538C', '#004370', '#B8C4CA', '#ffffff'),
+            'Nets': genT('Nets', '#000000', '#1a1a1a', '#ffffff', '#888888', true),
+            'Nuggets': genT('Nuggets', '#0E2240', '#163666', '#FEC524', '#8B2131'),
+            'Pacers': genT('Pacers', '#002D62', '#002047', '#FDBB30', '#BEC0C2'),
+            'Pelicans': genT('Pelicans', '#0C2340', '#0a1c33', '#C8102E', '#85714D'),
+            'Pistons': genT('Pistons', '#C8102E', '#a30d25', '#1d42ba', '#ffffff'),
+            'Raptors': genT('Raptors', '#ce1141', '#a60e34', '#000000', '#A1A1A4'),
+            'Rockets': genT('Rockets', '#CE1141', '#a80e35', '#C4CED4', '#000000'),
+            'Spurs': genT('Spurs', '#C4CED4', '#a4b1b8', '#000000', '#ffffff', false),
+            'Suns': genT('Suns', '#1D1160', '#261780', '#E56020', '#000000'),
+            'Thunder': genT('Thunder', '#007AC1', '#00629a', '#EF3B24', '#002D62'),
+            'Timberwolves': genT('Timberwolves', '#0C2340', '#0a1c33', '#78BE20', '#236192'),
+            'Trail Blazers': genT('Trail Blazers', '#E03A3E', '#b82d30', '#000000', '#ffffff'),
+            'Warriors': genT('Warriors', '#0b162a', '#102340', '#FFC72C', '#1D428A'),
+            'Wizards': genT('Wizards', '#002B5C', '#001e40', '#E31837', '#C4CED4')
+        };
+
+        // Default Data
+        const DEFAULT_PROFILES = ['Full Body', 'Basketball'];
+        const DEFAULT_EXERCISES = {
+            'Full Body': ['Push-ups', 'Pull-ups', 'Sit-ups', 'Box Jumps'],
+            'Basketball': ['Free Throws', 'Three Pointers', 'Layups', 'Dribbling Drills']
+        };
+
+        const App = () => {
+            // Theme State
+            const [activeTheme, setActiveTheme] = useState('Default');
+            const t = THEMES[activeTheme];
+
+            // State Management
+            const [activeProfile, setActiveProfile] = useState(DEFAULT_PROFILES[0]);
+            const [profiles, setProfiles] = useState(DEFAULT_PROFILES);
+            const [exercises, setExercises] = useState(DEFAULT_EXERCISES);
+            const [logs, setLogs] = useState([]);
+            
+            const [goals, setGoals] = useState({}); 
+            const [editingGoal, setEditingGoal] = useState(null);
+            const [goalInput, setGoalInput] = useState("");
+            
+            const [isAddingProfile, setIsAddingProfile] = useState(false);
+            const [newProfileName, setNewProfileName] = useState("");
+            
+            const [newExerciseName, setNewExerciseName] = useState("");
+            const [repInputs, setRepInputs] = useState({});
+            const [calendarMonthOffset, setCalendarMonthOffset] = useState(0);
+            const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+
+            // Load data
+            useEffect(() => {
+                const savedLogs = localStorage.getItem('workoutLogs');
+                const savedExercises = localStorage.getItem('workoutExercises');
+                const savedProfiles = localStorage.getItem('workoutProfiles');
+                const savedGoals = localStorage.getItem('workoutGoals');
+                const savedTheme = localStorage.getItem('workoutTheme');
+                
+                if (savedLogs) setLogs(JSON.parse(savedLogs));
+                if (savedExercises) setExercises(JSON.parse(savedExercises));
+                if (savedProfiles) setProfiles(JSON.parse(savedProfiles));
+                if (savedGoals) setGoals(JSON.parse(savedGoals));
+                if (savedTheme && THEMES[savedTheme]) setActiveTheme(savedTheme);
+            }, []);
+
+            // Save data
+            useEffect(() => {
+                localStorage.setItem('workoutLogs', JSON.stringify(logs));
+                localStorage.setItem('workoutExercises', JSON.stringify(exercises));
+                localStorage.setItem('workoutProfiles', JSON.stringify(profiles));
+                localStorage.setItem('workoutGoals', JSON.stringify(goals));
+                localStorage.setItem('workoutTheme', activeTheme);
+                
+                // Update document body background to match theme for overscroll areas
+                document.body.style.backgroundColor = t.docBg;
+            }, [logs, exercises, profiles, goals, activeTheme, t.docBg]);
+
+            const handleAddProfile = (e) => {
+                e.preventDefault();
+                const trimmedName = newProfileName.trim();
+                if (!trimmedName || profiles.includes(trimmedName)) return;
+
+                setProfiles(prev => [...prev, trimmedName]);
+                setExercises(prev => ({...prev, [trimmedName]: []}));
+                setActiveProfile(trimmedName);
+                setNewProfileName("");
+                setIsAddingProfile(false);
+            };
+
+            const handleRepChange = (exercise, value) => {
+                setRepInputs(prev => ({...prev, [exercise]: value}));
+            };
+
+            const triggerBigCelebration = () => {
+                const duration = 3 * 1000;
+                const animationEnd = Date.now() + duration;
+                const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0, colors: t.confetti };
+
+                const interval = setInterval(function() {
+                    const timeLeft = animationEnd - Date.now();
+                    if (timeLeft <= 0) return clearInterval(interval);
+                    const particleCount = 50 * (timeLeft / duration);
+                    confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+                    confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+                }, 250);
+            };
+
+            const randomInRange = (min, max) => Math.random() * (max - min) + min;
+
+            const logWorkout = (exerciseName) => {
+                const reps = parseInt(repInputs[exerciseName] || 10); 
+                if (isNaN(reps) || reps <= 0) return;
+
+                const now = new Date();
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+                
+                const currentMonthTotal = logs
+                    .filter(l => l.profile === activeProfile && l.exercise === exerciseName && new Date(l.timestamp).getTime() >= startOfMonth)
+                    .reduce((sum, l) => sum + l.reps, 0);
+                
+                const newMonthTotal = currentMonthTotal + reps;
+                const targetGoal = goals[exerciseName];
+
+                if (targetGoal && currentMonthTotal < targetGoal && newMonthTotal >= targetGoal) {
+                    triggerBigCelebration();
+                } else {
+                    confetti({
+                        particleCount: 100,
+                        spread: 70,
+                        origin: { y: 0.6 },
+                        colors: t.confetti
+                    });
+                }
+
+                const newLog = {
+                    id: Date.now(),
+                    profile: activeProfile,
+                    exercise: exerciseName,
+                    reps: reps,
+                    timestamp: new Date().toISOString()
+                };
+
+                setLogs(prev => [newLog, ...prev]);
+                setRepInputs(prev => ({...prev, [exerciseName]: ""}));
+            };
+
+            const addCustomExercise = (e) => {
+                e.preventDefault();
+                if (!newExerciseName.trim()) return;
+
+                setExercises(prev => {
+                    const profileExercises = prev[activeProfile] || [];
+                    if (profileExercises.includes(newExerciseName.trim())) return prev;
+                    return { ...prev, [activeProfile]: [...profileExercises, newExerciseName.trim()] };
+                });
+                setNewExerciseName("");
+            };
+
+            const stats = useMemo(() => {
+                const now = new Date();
+                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                
+                const startOfWeekDate = new Date(now);
+                startOfWeekDate.setDate(now.getDate() - now.getDay());
+                startOfWeekDate.setHours(0,0,0,0);
+                const startOfWeek = startOfWeekDate.getTime();
+                
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+                const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+
+                const profileLogs = logs.filter(log => log.profile === activeProfile);
+                const aggregated = {};
+                
+                (exercises[activeProfile] || []).forEach(ex => {
+                    const goal = goals[ex] || 0;
+                    aggregated[ex] = { 
+                        daily: 0, weekly: 0, monthly: 0, allTime: 0, 
+                        goal: goal,
+                        dailyTarget: goal > 0 ? Math.ceil(goal / daysInMonth) : 0,
+                        weeklyTarget: goal > 0 ? Math.ceil(goal / 4.33) : 0
+                    };
+                });
+
+                profileLogs.forEach(log => {
+                    const logTime = new Date(log.timestamp).getTime();
+                    const ex = log.exercise;
+                    if (!aggregated[ex]) aggregated[ex] = { daily: 0, weekly: 0, monthly: 0, allTime: 0 };
+                    aggregated[ex].allTime += log.reps;
+                    if (logTime >= startOfDay) aggregated[ex].daily += log.reps;
+                    if (logTime >= startOfWeek) aggregated[ex].weekly += log.reps;
+                    if (logTime >= startOfMonth) aggregated[ex].monthly += log.reps;
+                });
+
+                return aggregated;
+            }, [logs, activeProfile, exercises, goals]);
+
+            const totalDailyReps = useMemo(() => {
+                let total = 0;
+                Object.values(stats).forEach(stat => total += stat.daily);
+                return total;
+            }, [stats]);
+
+            const saveGoal = (exercise) => {
+                const parsed = parseInt(goalInput);
+                if (!isNaN(parsed) && parsed > 0) {
+                    setGoals(prev => ({...prev, [exercise]: parsed}));
+                }
+                setEditingGoal(null);
+                setGoalInput("");
+            };
+
+            const calendarDays = useMemo(() => {
+                const now = new Date();
+                const targetDate = new Date(now.getFullYear(), now.getMonth() + calendarMonthOffset, 1);
+                const year = targetDate.getFullYear();
+                const month = targetDate.getMonth();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                
+                const days = [];
+                for (let i = 1; i <= daysInMonth; i++) {
+                    const dateStart = new Date(year, month, i).getTime();
+                    const dateEnd = new Date(year, month, i + 1).getTime();
+                    
+                    const dayReps = logs
+                        .filter(l => l.profile === activeProfile && new Date(l.timestamp).getTime() >= dateStart && new Date(l.timestamp).getTime() < dateEnd)
+                        .reduce((sum, l) => sum + l.reps, 0);
+                    
+                    days.push({ day: i, reps: dayReps });
+                }
+                return { days, year, month };
+            }, [logs, activeProfile, calendarMonthOffset]);
+
+            const displayDate = new Date(calendarDays.year, calendarDays.month, 1);
+            const displayMonthName = displayDate.toLocaleString('default', { month: 'long' });
+            const displayYear = displayDate.getFullYear();
+
+            return (
+                <div className={`min-h-screen p-4 md:p-8 flex flex-col items-center transition-colors duration-500 ${t.body}`}>
+                    
+                    {/* Header & Profiles */}
+                    <div className="w-full max-w-4xl flex flex-col items-center justify-center mb-8 gap-6 relative">
+                        <div className="flex flex-col items-center text-center w-full">
+                            <div className="flex justify-center items-center w-full relative h-10 md:h-12">
+                                <h1 className={`text-3xl md:text-4xl font-bold ${t.text} flex items-center gap-2 whitespace-nowrap`}>
+                                    <i className={`ph ph-barbell ${t.iconPrimary}`}></i>
+                                    Perfect Form
+                                </h1>
+                                
+                                {/* Theme Dropdown (Circular Icon) */}
+                                <div className="absolute right-0">
+                                    <button
+                                        onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
+                                        className={`w-9 h-9 shrink-0 rounded-full border ${t.border} ${t.cardInner} flex items-center justify-center ${t.text} hover:opacity-80 transition-all shadow-sm ${t.btnHover}`}
+                                        title="Change Theme"
+                                    >
+                                        <i className="ph ph-palette text-lg"></i>
+                                    </button>
+
+                                    {isThemeMenuOpen && (
+                                        <>
+                                            <div className="fixed inset-0 z-40" onClick={() => setIsThemeMenuOpen(false)}></div>
+                                            <div className={`absolute right-0 top-12 w-56 rounded-xl shadow-2xl border ${t.border} ${t.cardInner} z-50 max-h-[60vh] overflow-y-auto custom-scrollbar`}>
+                                                <div className={`px-4 py-2 border-b ${t.border} font-bold text-xs ${t.textMuted} uppercase tracking-wider sticky top-0 ${t.cardInner} z-10`}>
+                                                    Select Theme
+                                                </div>
+                                                <div className="p-1 relative z-0">
+                                                    {Object.keys(THEMES).map(theme => (
+                                                        <button
+                                                            key={theme}
+                                                            onClick={() => { setActiveTheme(theme); setIsThemeMenuOpen(false); }}
+                                                            className={`w-full text-left px-3 py-2 text-sm rounded-lg transition-colors duration-150 mb-0.5
+                                                                ${activeTheme === theme 
+                                                                    ? `bg-gradient-to-r ${t.primary} text-white font-bold shadow-md` 
+                                                                    : `${t.text} hover:bg-white/10 hover:text-white`
+                                                                }`}
+                                                        >
+                                                            {theme}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            <p className={`${t.textMuted} text-sm mt-2 flex items-center gap-2`}>
+                                Track, Aggregate, Celebrate.
+                            </p>
+                        </div>
+                        
+                        <div className="flex flex-row items-center w-full justify-center">
+                            <div className={`flex flex-wrap items-center justify-center ${t.card} rounded-lg p-1 border ${t.border} gap-1 transition-colors duration-300`}>
+                                {profiles.map(profile => (
+                                    <button
+                                        key={profile}
+                                        onClick={() => setActiveProfile(profile)}
+                                        className={`px-4 py-2 rounded-md font-medium transition-all text-sm md:text-base ${
+                                            activeProfile === profile 
+                                            ? `${t.activeTab} shadow-lg` 
+                                            : `${t.textMuted} hover:${t.text} ${t.btnHover}`
+                                        }`}
+                                    >
+                                        {profile}
+                                    </button>
+                                ))}
+                                
+                                {isAddingProfile ? (
+                                    <form onSubmit={handleAddProfile} className="flex items-center gap-1 px-2">
+                                        <input 
+                                            type="text" 
+                                            value={newProfileName}
+                                            onChange={(e) => setNewProfileName(e.target.value)}
+                                            placeholder="New Tab..."
+                                            className={`w-24 ${t.cardInner} border ${t.border} rounded px-2 py-1.5 text-sm ${t.text} focus:outline-none focus:border-opacity-50`}
+                                            autoFocus
+                                        />
+                                        <button type="submit" className={`${t.iconPrimary} p-1 rounded ${t.btnHover} hover:opacity-80`}>
+                                            <i className="ph ph-check-circle text-xl"></i>
+                                        </button>
+                                        <button type="button" onClick={() => {setIsAddingProfile(false); setNewProfileName("");}} className={`${t.textMuted} hover:text-red-400 p-1 rounded ${t.btnHover}`}>
+                                            <i className="ph ph-x-circle text-xl"></i>
+                                        </button>
+                                    </form>
+                                ) : (
+                                    <button 
+                                        onClick={() => setIsAddingProfile(true)}
+                                        className={`px-3 py-2 rounded-md font-medium transition-all text-sm md:text-base ${t.textMuted} hover:${t.text} ${t.btnHover} flex items-center gap-1`}
+                                    >
+                                        <i className="ph ph-plus"></i> Tab
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Main Content Grid */}
+                    <div className="w-full max-w-4xl grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        
+                        {/* Left Column: Logging & Exercises */}
+                        <div className="lg:col-span-2 space-y-6">
+                            
+                            <div className={`${t.card} rounded-xl p-6 border ${t.border} shadow-xl transition-colors duration-300`}>
+                                <h2 className={`text-xl font-semibold mb-4 flex items-center gap-2 ${t.text}`}>
+                                    <i className={`ph ph-plus-circle ${t.iconSecondary}`}></i>
+                                    Log {activeProfile} Workout
+                                </h2>
+                                
+                                <div className="space-y-4">
+                                    {(exercises[activeProfile] || []).map((exercise) => (
+                                        <div key={exercise} className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 ${t.cardInner} rounded-lg border ${t.border} gap-4 transition-colors duration-300`}>
+                                            <div className={`font-medium text-lg ${t.text}`}>{exercise}</div>
+                                            
+                                            <div className="flex items-center gap-3 w-full sm:w-auto">
+                                                <div className="flex flex-col">
+                                                    <label className={`text-xs ${t.textMuted} mb-1`}>Reps</label>
+                                                    <input 
+                                                        type="number" 
+                                                        min="1"
+                                                        placeholder="10"
+                                                        value={repInputs[exercise] || ""}
+                                                        onChange={(e) => handleRepChange(exercise, e.target.value)}
+                                                        className={`w-20 ${t.card} border ${t.border} rounded p-2 text-center ${t.text} focus:outline-none transition-colors duration-300`}
+                                                    />
+                                                </div>
+                                                <button 
+                                                    onClick={() => logWorkout(exercise)}
+                                                    className={`mt-5 flex-1 sm:flex-none bg-gradient-to-r ${t.primary} ${t.primaryHover} ${t.btnText} px-4 py-2 rounded font-semibold shadow-lg ${t.shadow} transition-all active:scale-95 flex items-center justify-center gap-2`}
+                                                >
+                                                    <i className="ph ph-check-circle weight-bold"></i>
+                                                    Log Form
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <form onSubmit={addCustomExercise} className={`mt-6 pt-6 border-t ${t.border} flex gap-2`}>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Add custom exercise (e.g. Planks)"
+                                        value={newExerciseName}
+                                        onChange={(e) => setNewExerciseName(e.target.value)}
+                                        className={`flex-1 ${t.cardInner} border ${t.border} rounded-lg px-4 py-2 ${t.text} focus:outline-none transition-colors duration-300`}
+                                    />
+                                    <button 
+                                        type="submit"
+                                        className={`${t.card} border ${t.border} hover:opacity-80 ${t.text} px-4 py-2 rounded-lg font-medium transition-colors`}
+                                    >
+                                        Add
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        {/* Right Column: Dashboard & Stats */}
+                        <div className="space-y-6">
+                            
+                            <div className={`p-6 rounded-xl border shadow-xl flex items-center gap-4 transition-colors duration-300 ${
+                                totalDailyReps >= 50 
+                                ? t.heat2
+                                : `${t.card} border ${t.border}`
+                            }`}>
+                                <div className={`p-3 rounded-full ${totalDailyReps >= 50 ? t.heat4 : `${t.cardInner} ${t.textMuted}`}`}>
+                                    {totalDailyReps >= 50 ? <i className="ph ph-fire text-3xl"></i> : <i className="ph ph-activity text-3xl"></i>}
+                                </div>
+                                <div>
+                                    <div className={`text-sm ${totalDailyReps >= 50 ? 'opacity-80' : t.textMuted}`}>Daily Status</div>
+                                    <div className={`text-xl font-bold ${totalDailyReps >= 50 ? '' : t.text}`}>
+                                        {totalDailyReps >= 50 ? 'Great Work!' : (totalDailyReps > 0 ? 'Warming Up' : 'Rest Day?')}
+                                    </div>
+                                    <div className={`text-xs mt-1 ${totalDailyReps >= 50 ? 'opacity-80' : t.textMuted}`}>{totalDailyReps} total reps today</div>
+                                </div>
+                            </div>
+
+                            <div className={`${t.card} rounded-xl border ${t.border} shadow-xl overflow-hidden transition-colors duration-300`}>
+                                <div className={`p-4 border-b ${t.border} ${t.cardInner}`}>
+                                    <h2 className={`text-lg font-semibold flex items-center gap-2 ${t.text}`}>
+                                        <i className={`ph ph-chart-bar ${t.iconSecondary}`}></i>
+                                        Aggregated Records
+                                    </h2>
+                                </div>
+                                
+                                <div className="max-h-[500px] overflow-y-auto custom-scrollbar">
+                                    {Object.entries(stats).map(([exercise, data]) => (
+                                        <div key={exercise} className={`p-4 border-b ${t.border} last:border-0 ${t.btnHover} transition-colors`}>
+                                            <div className="flex justify-between items-center mb-3">
+                                                <div className={`font-semibold ${t.text}`}>{exercise}</div>
+                                                
+                                                {editingGoal === exercise ? (
+                                                    <div className="flex gap-2">
+                                                        <input 
+                                                            type="number" 
+                                                            className={`w-20 ${t.cardInner} border ${t.border} rounded px-2 py-1 text-sm ${t.text} focus:outline-none`}
+                                                            placeholder="Target"
+                                                            value={goalInput}
+                                                            onChange={(e) => setGoalInput(e.target.value)}
+                                                            autoFocus
+                                                        />
+                                                        <button onClick={() => saveGoal(exercise)} className={`${t.iconPrimary} hover:opacity-80 text-sm font-medium`}>Save</button>
+                                                        <button onClick={() => setEditingGoal(null)} className={`${t.textMuted} hover:opacity-80 text-sm`}>Cancel</button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-sm flex items-center gap-2">
+                                                        {data.goal > 0 ? (
+                                                            <span className={t.textMuted}>Target: <span className={`${t.text} font-medium`}>{data.goal}</span>/mo</span>
+                                                        ) : (
+                                                            <span className={`${t.textMuted} italic`}>No goal set</span>
+                                                        )}
+                                                        <button onClick={() => { setEditingGoal(exercise); setGoalInput(data.goal || ""); }} className={`${t.iconSecondary} hover:opacity-80 text-xs flex items-center gap-1`}>
+                                                            <i className="ph ph-pencil-simple"></i> Edit
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {data.goal > 0 && (
+                                                <div className="mb-4">
+                                                    <div className={`flex justify-between text-xs ${t.textMuted} mb-1`}>
+                                                        <span>{Math.min(100, Math.round((data.monthly / data.goal) * 100))}% completed</span>
+                                                        <span>{data.monthly} / {data.goal} reps</span>
+                                                    </div>
+                                                    <div className={`w-full ${t.cardInner} rounded-full h-2.5 mb-2 overflow-hidden border ${t.border}`}>
+                                                        <div className={`bg-gradient-to-r ${t.progressStart} ${t.progressEnd} h-2.5 rounded-full transition-all duration-500`} style={{ width: `${Math.min(100, (data.monthly / data.goal) * 100)}%` }}></div>
+                                                    </div>
+                                                    <div className={`flex justify-between text-[11px] ${t.textMuted} ${t.cardInner} p-2 rounded border ${t.border}`}>
+                                                        <span>Pace Required: <strong className={t.text}>{data.dailyTarget}</strong> /day</span>
+                                                        <span><strong className={t.text}>{data.weeklyTarget}</strong> /wk</span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                                                <div className={`${t.cardInner} rounded p-2 border ${t.border}`}>
+                                                    <div className={`${t.textMuted} text-xs mb-1`}>Today</div>
+                                                    <div className={`font-bold ${t.iconSecondary}`}>{data.daily}</div>
+                                                </div>
+                                                <div className={`${t.cardInner} rounded p-2 border ${t.border}`}>
+                                                    <div className={`${t.textMuted} text-xs mb-1`}>Week</div>
+                                                    <div className={`font-bold ${t.iconPrimary}`}>{data.weekly}</div>
+                                                </div>
+                                                <div className={`${t.cardInner} rounded p-2 border ${t.border}`}>
+                                                    <div className={`${t.textMuted} text-xs mb-1`}>Month</div>
+                                                    <div className={`font-bold ${t.text}`}>{data.monthly}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    
+                                    {Object.keys(stats).length === 0 && (
+                                        <div className={`p-8 text-center ${t.textMuted}`}>
+                                            No exercises found for this profile.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {/* Calendar Activity Section */}
+                    <div className="w-full max-w-4xl mt-8">
+                        <div className={`${t.card} rounded-xl border ${t.border} shadow-xl p-6 transition-colors duration-300`}>
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+                                <h2 className={`text-xl font-semibold flex items-center gap-2 ${t.text}`}>
+                                    <i className={`ph ph-calendar-blank ${t.iconPrimary}`}></i>
+                                    {displayMonthName} {displayYear} Activity
+                                </h2>
+                                
+                                <div className={`flex items-center gap-1 ${t.cardInner} rounded-lg p-1 border ${t.border}`}>
+                                    <button 
+                                        onClick={() => setCalendarMonthOffset(prev => prev - 1)}
+                                        className={`p-1.5 ${t.textMuted} hover:${t.text} ${t.btnHover} rounded transition-colors flex items-center justify-center`}
+                                        title="Previous Month"
+                                    >
+                                        <i className="ph ph-caret-up"></i>
+                                    </button>
+                                    <button 
+                                        onClick={() => setCalendarMonthOffset(0)}
+                                        className={`px-3 py-1 text-xs font-medium ${t.textMuted} hover:${t.text} transition-colors`}
+                                    >
+                                        Today
+                                    </button>
+                                    <button 
+                                        onClick={() => setCalendarMonthOffset(prev => prev + 1)}
+                                        className={`p-1.5 rounded transition-colors flex items-center justify-center ${calendarMonthOffset >= 0 ? 'opacity-30 cursor-not-allowed' : `${t.textMuted} hover:${t.text} ${t.btnHover}`}`}
+                                        title="Next Month"
+                                        disabled={calendarMonthOffset >= 0}
+                                    >
+                                        <i className="ph ph-caret-down"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-7 sm:grid-cols-10 md:grid-cols-12 lg:grid-cols-[repeat(15,minmax(0,1fr))] gap-2">
+                                {calendarDays.days.map((dayData, index) => {
+                                    let bgClass = t.heatBase;
+                                    let textClass = t.textMuted;
+                                    
+                                    if (dayData.reps > 0) {
+                                        if (dayData.reps > 100) bgClass = t.heat4;
+                                        else if (dayData.reps > 50) bgClass = t.heat3;
+                                        else if (dayData.reps > 20) bgClass = t.heat2;
+                                        else bgClass = t.heat1;
+                                        textClass = t.heatText;
+                                    }
+
+                                    return (
+                                        <div 
+                                            key={index} 
+                                            className={`aspect-square rounded border flex flex-col items-center justify-center text-xs transition-transform hover:scale-110 cursor-default ${bgClass}`}
+                                            title={`${dayData.reps} reps on day ${dayData.day}`}
+                                        >
+                                            <span className={textClass}>{dayData.day}</span>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                            
+                            <div className={`flex gap-4 mt-4 text-xs ${t.textMuted} justify-end items-center`}>
+                                <span>Less</span>
+                                <div className="flex gap-1">
+                                    <div className={`w-3 h-3 rounded border ${t.heatBase}`}></div>
+                                    <div className={`w-3 h-3 rounded border ${t.heat1}`}></div>
+                                    <div className={`w-3 h-3 rounded border ${t.heat2}`}></div>
+                                    <div className={`w-3 h-3 rounded border ${t.heat3}`}></div>
+                                    <div className={`w-3 h-3 rounded border ${t.heat4}`}></div>
+                                </div>
+                                <span>More</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
+```
